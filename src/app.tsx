@@ -1,88 +1,75 @@
-import React from "react";
-import {
-  BrowserRouter as Router,
-  Switch,
-  Route,
-  Link,
-  useRouteMatch,
-  useParams
-} from "react-router-dom";
+import React from 'react'
+import {BrowserRouter as Router, Switch, Route, Link, useRouteMatch, useParams} from 'react-router-dom'
 
-export default function App() {
+import AceEditorPage from './ace_editor'
+
+const App = () => {
   return (
     <Router>
       <div>
         <nav>
           <ul>
             <li>
-                <Link to="/">Home</Link>
+              <Link to="/">Home</Link>
             </li>
             <li>
-                <Link to="/about">About</Link>
+              <Link to="/ace_editor">Ace Editor</Link>
             </li>
             <li>
-                <Link to="/users">Users</Link>
-            </li>
-            <li>
-                <Link to="/topics">Topics</Link>
+              <Link to="/topics">Topics</Link>
             </li>
           </ul>
         </nav>
 
         <Switch>
-            <Route path="/about">
-                <About />
-            </Route>
-            <Route path="/users">
-                <Users />
-            </Route>
-            <Route path="/topics">
-                <Topics />
-            </Route>
-            <Route path="/">
-                <Home />
-            </Route>
+          <Route path="/ace_editor">
+            <AceEditorPage />
+          </Route>
+          <Route path="/topics">
+            <Topics />
+          </Route>
+          <Route path="/">
+            <Home />
+          </Route>
         </Switch>
       </div>
     </Router>
-  );
+  )
 }
 
-const Home: React.FC = () => <h2>Home</h2>;
-const About: React.FC = () => <h2>About</h2>;
-const Users: React.FC = () => <h2>Users AND ...?</h2>;
+const Home: React.FC = () => <h2>Home</h2>
 
-function Topics() {
-    let match = useRouteMatch();
+const Topics = () => {
+  const match = useRouteMatch()
 
-    return (
-        <div>
-            <h2>Topics</h2>
+  return (
+    <div>
+      <h2>Topics</h2>
 
-            <ul>
-                <li>
-                    <Link to={`${match.url}/components`}>Components</Link>
-                </li>
-                <li>
-                    <Link to={`${match.url}/props-v-state`}>
-                        Props v. State
-                    </Link>
-                </li>
-            </ul>
+      <ul>
+        <li>
+          <Link to={`${match.url}/components`}>Components</Link>
+        </li>
+        <li>
+          <Link to={`${match.url}/props-v-state`}>Props v. State</Link>
+        </li>
+      </ul>
 
-            <Switch>
-                <Route path={`${match.path}/:topicId`}>
-                    <Topic />
-                </Route>
-                <Route path={`${match.path}`}>
-                    <h3>Please select a topic.</h3>
-                </Route>
-            </Switch>
-        </div>
-    );
+      <Switch>
+        <Route path={`${match.path}/:topicId`}>
+          <Topic />
+        </Route>
+        <Route path={`${match.path}`}>
+          <h3>Please select a topic.</h3>
+        </Route>
+      </Switch>
+    </div>
+  )
 }
 
-function Topic(){
-    const { topicId } = useParams<{topicId : string}>();
-    return <h3>Requested topic ID: {topicId}</h3>;
+const Topic = () => {
+  const {topicId} = useParams<{ topicId: string }>()
+  return <h3>Requested topic ID: {topicId}</h3>
 }
+
+export default App
