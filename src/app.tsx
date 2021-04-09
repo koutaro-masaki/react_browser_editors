@@ -2,6 +2,7 @@ import React from 'react'
 import {BrowserRouter as Router, Switch, Route, Link, useRouteMatch, useParams} from 'react-router-dom'
 
 import AceEditorPage from './ace_editor'
+import SamplePage from './sample'
 
 const App = () => {
   return (
@@ -13,7 +14,10 @@ const App = () => {
               <Link to="/">Home</Link>
             </li>
             <li>
-              <Link to="/ace_editor">Ace Editor</Link>
+              <Link to="/ace-editor">Ace Editor</Link>
+            </li>
+            <li>
+              <Link to='/sample-page'>Editor Sample</Link>
             </li>
             <li>
               <Link to="/topics">Topics</Link>
@@ -22,8 +26,11 @@ const App = () => {
         </nav>
 
         <Switch>
-          <Route path="/ace_editor">
+          <Route path="/ace-editor">
             <AceEditorPage />
+          </Route>
+          <Route path='/sample-page'>
+            <SamplePage />
           </Route>
           <Route path="/topics">
             <Topics />
