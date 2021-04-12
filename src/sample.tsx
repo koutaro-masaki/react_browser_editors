@@ -1,4 +1,4 @@
-import React, {useState} from 'react'
+import React, {useState, useMemo, useCallback} from 'react'
 import AceEditor from 'react-ace'
 import styled from 'styled-components'
 
@@ -29,16 +29,6 @@ const Box1 = styled.div({
   gridRow: '2',
 })
 
-const Box2 = styled.div({
-  gridColumn: '1',
-  gridRow: '3',
-})
-
-const Box3 = styled.div({
-  gridColumn: '1',
-  gridRow: '4',
-})
-
 const IFrameContent = styled.div({
   position: 'relative',
   gridColumn: '2',
@@ -52,56 +42,51 @@ const IFrame = styled.iframe({
   height: '100%',
 })
 
+interface SelectMap {
+  [key: string] : [string, React.Dispatch<React.SetStateAction<string>>]
+}
+
 const Sample = () => {
-  const [htmlEditorValue, setHtmlEditorValue] = useState('<h2>poyo poyo</h2>')
+  const [htmlEditorValue, setHtmlEditorValue] = useState('<h1>Hello, World!</h1>')
   const [cssEditorValue, setCssEditorValue] = useState('')
-  const [scriptEditorValue, setScriptEditorValue] = useState('alert("hei!")')
-  const [iframeValue, setIFrameValue] = useState('')
+  const [scriptEditorValue, setScriptEditorValue] = useState('console.log("called");')
+  const [iframeDoc, setIFrameValue] = useState('')
+  const [selectState, setSelectState] = useState('html')
 
   // 中身のチェック等は一切せずにくっつけてiframeのsrcdocに渡すだけ
-  const source = htmlEditorValue + '<style>' + cssEditorValue + '</style><script>' + scriptEditorValue + '<\/script>'
+  const source = useMemo(()=>htmlEditorValue+'<style>'+cssEditorValue+'</style><script>'+scriptEditorValue+'<\/script>',
+      [htmlEditorValue, cssEditorValue, scriptEditorValue])
+  const buttonClicked = useCallback(() => setIFrameValue(source), [source])
+
+  const selectMap : SelectMap = {
+    'html': [htmlEditorValue, setHtmlEditorValue],
+    'css': [cssEditorValue, setCssEditorValue],
+    'javascript': [scriptEditorValue, setScriptEditorValue],
+  }
+  const [editorValue, setEditorValue] = selectMap[selectState]
+  const editorChanged = useCallback((val) => setEditorValue(val), [setEditorValue])
 
   return (
     <GridWrapper>
-      <Button onClick = {()=> setIFrameValue(source)}>Run</Button>
+      <Button onClick = {buttonClicked}>Run</Button>
+      <select value={selectState} onChange={(e)=>setSelectState(e.target.value)}>
+        <option value='html'>HTML</option>
+        <option value='css'>CSS</option>
+        <option value='javascript'>JavaScript</option>
+      </select>
       <Box1>
         <AceEditor
-          mode = 'html'
+          mode = {selectState}
           theme = 'monokai'
           name = 'html-editor'
           height = '200px'
           width = '320px'
-          placeholder = 'HTML'
-          value = {htmlEditorValue}
-          onChange = {(val) => setHtmlEditorValue(val)}
+          value = {editorValue}
+          onChange = {editorChanged}
         />
       </Box1>
-      <Box2>
-        <AceEditor
-          mode = 'css'
-          theme = 'monokai'
-          name = 'html-editor'
-          height = '200px'
-          width = '320px'
-          placeholder = 'CSS'
-          value = {cssEditorValue}
-          onChange = {(val) => setCssEditorValue(val)}
-        />
-      </Box2>
-      <Box3>
-        <AceEditor
-          mode = 'javascript'
-          theme = 'monokai'
-          name = 'html-editor'
-          height = '200px'
-          width = '320px'
-          placeholder = 'JavaScript'
-          value = {scriptEditorValue}
-          onChange = {(val) => setScriptEditorValue(val)}
-        />
-      </Box3>
       <IFrameContent>
-        <IFrame srcDoc= {iframeValue} />
+        <IFrame srcDoc= {iframeDoc} />
       </IFrameContent>
     </GridWrapper>
   )
