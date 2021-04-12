@@ -1,4 +1,4 @@
-import React from 'react'
+import React, {useState} from 'react'
 import AceEditor from 'react-ace'
 import styled from 'styled-components'
 
@@ -52,43 +52,59 @@ const IFrame = styled.iframe({
   height: '100%',
 })
 
-const Sample = () => (
-  <GridWrapper>
-    <Button onClick = {()=> alert('infinite alert')}>Run</Button>
-    <Box1>
-      <AceEditor
-        mode = 'html'
-        theme = 'monokai'
-        name = 'html-editor'
-        height = '200px'
-        width = '320px'
-        placeholder = 'HTML'
-      />
-    </Box1>
-    <Box2>
-      <AceEditor
-        mode = 'css'
-        theme = 'monokai'
-        name = 'html-editor'
-        height = '200px'
-        width = '320px'
-        placeholder = 'CSS'
-      />
-    </Box2>
-    <Box3>
-      <AceEditor
-        mode = 'javascript'
-        theme = 'monokai'
-        name = 'html-editor'
-        height = '200px'
-        width = '320px'
-        placeholder = 'JavaScript'
-      />
-    </Box3>
-    <IFrameContent>
-      <IFrame></IFrame>
-    </IFrameContent>
-  </GridWrapper>
-)
+const Sample = () => {
+  const [htmlEditorValue, setHtmlEditorValue] = useState('<h2>poyo poyo</h2>')
+  const [cssEditorValue, setCssEditorValue] = useState('')
+  const [scriptEditorValue, setScriptEditorValue] = useState('alert("hei!")')
+  const [iframeValue, setIFrameValue] = useState('')
+
+  // 中身のチェック等は一切せずにくっつけてiframeのsrcdocに渡すだけ
+  const source = htmlEditorValue + '<style>' + cssEditorValue + '</style><script>' + scriptEditorValue + '<\/script>'
+
+  return (
+    <GridWrapper>
+      <Button onClick = {()=> setIFrameValue(source)}>Run</Button>
+      <Box1>
+        <AceEditor
+          mode = 'html'
+          theme = 'monokai'
+          name = 'html-editor'
+          height = '200px'
+          width = '320px'
+          placeholder = 'HTML'
+          value = {htmlEditorValue}
+          onChange = {(val) => setHtmlEditorValue(val)}
+        />
+      </Box1>
+      <Box2>
+        <AceEditor
+          mode = 'css'
+          theme = 'monokai'
+          name = 'html-editor'
+          height = '200px'
+          width = '320px'
+          placeholder = 'CSS'
+          value = {cssEditorValue}
+          onChange = {(val) => setCssEditorValue(val)}
+        />
+      </Box2>
+      <Box3>
+        <AceEditor
+          mode = 'javascript'
+          theme = 'monokai'
+          name = 'html-editor'
+          height = '200px'
+          width = '320px'
+          placeholder = 'JavaScript'
+          value = {scriptEditorValue}
+          onChange = {(val) => setScriptEditorValue(val)}
+        />
+      </Box3>
+      <IFrameContent>
+        <IFrame srcDoc= {iframeValue} />
+      </IFrameContent>
+    </GridWrapper>
+  )
+}
 
 export default Sample
