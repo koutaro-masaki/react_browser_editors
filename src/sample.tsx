@@ -66,7 +66,7 @@ const Sample = () => {
     }
     return selectMap[selectState]
   }, [cssEditorValue, htmlEditorValue, scriptEditorValue, selectState])
-  const editorChanged = useCallback((val) => setEditorValue(val), [setEditorValue])
+  const editorChanged = useCallback((val: string) => setEditorValue(val), [setEditorValue])
   const selectChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectState(e.target.value), [])
 
   return (
