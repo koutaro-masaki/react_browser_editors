@@ -12,7 +12,7 @@
     "ecmaVersion": 12,
     "sourceType": "module"
   },
-  "plugins": ["react", "@typescript-eslint"],
+  "plugins": ["react", "@typescript-eslint", "react-hooks"],
   "rules": {
       "semi": ["error", "never", {"beforeStatementContinuationChars": "never"}],
       "semi-spacing": ["error", {"after": true, "before": false}],
@@ -20,6 +20,8 @@
       "no-extra-semi": "error",
       "no-unexpected-multiline": "error",
       "no-unreachable": "error",
-      "max-len": ["error", { "code": 120 }]
+      "max-len": ["error", { "code": 120 }],
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn"
   }
 }
