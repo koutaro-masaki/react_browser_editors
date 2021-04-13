@@ -42,10 +42,6 @@ const IFrame = styled.iframe({
   height: '100%',
 })
 
-interface SelectMap {
-  [key: string] : [string, React.Dispatch<React.SetStateAction<string>>]
-}
-
 const Sample = () => {
   const [htmlEditorValue, setHtmlEditorValue] = useState('<h1>Hello, World!</h1>')
   const [cssEditorValue, setCssEditorValue] = useState('')
@@ -59,12 +55,16 @@ const Sample = () => {
   const buttonClicked = useCallback(() => setIFrameValue(source), [source])
 
   const [editorValue, setEditorValue] = useMemo(() => {
-    const selectMap : SelectMap = {
-      'html': [htmlEditorValue, setHtmlEditorValue],
-      'css': [cssEditorValue, setCssEditorValue],
-      'javascript': [scriptEditorValue, setScriptEditorValue],
+    switch (selectState) {
+      case 'html':
+        return [htmlEditorValue, setHtmlEditorValue]
+      case 'css':
+        return [cssEditorValue, setCssEditorValue]
+      case 'javascript':
+        return [scriptEditorValue, setScriptEditorValue]
+      default:
+        throw new Error()
     }
-    return selectMap[selectState]
   }, [cssEditorValue, htmlEditorValue, scriptEditorValue, selectState])
   const editorChanged = useCallback((val: string) => setEditorValue(val), [setEditorValue])
   const selectChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectState(e.target.value), [])
