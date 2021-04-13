@@ -54,22 +54,25 @@ const Sample = () => {
   const [selectState, setSelectState] = useState('html')
 
   // 中身のチェック等は一切せずにくっつけてiframeのsrcdocに渡すだけ
-  const source = useMemo(()=>htmlEditorValue+'<style>'+cssEditorValue+'</style><script>'+scriptEditorValue+'<\/script>',
+  const source = useMemo(()=>`${htmlEditorValue}<style>${cssEditorValue}</style><script>${scriptEditorValue}<\/script>`,
       [htmlEditorValue, cssEditorValue, scriptEditorValue])
   const buttonClicked = useCallback(() => setIFrameValue(source), [source])
 
-  const selectMap : SelectMap = {
-    'html': [htmlEditorValue, setHtmlEditorValue],
-    'css': [cssEditorValue, setCssEditorValue],
-    'javascript': [scriptEditorValue, setScriptEditorValue],
-  }
-  const [editorValue, setEditorValue] = selectMap[selectState]
+  const [editorValue, setEditorValue] = useMemo(() => {
+    const selectMap : SelectMap = {
+      'html': [htmlEditorValue, setHtmlEditorValue],
+      'css': [cssEditorValue, setCssEditorValue],
+      'javascript': [scriptEditorValue, setScriptEditorValue],
+    }
+    return selectMap[selectState]
+  }, [cssEditorValue, htmlEditorValue, scriptEditorValue, selectState])
   const editorChanged = useCallback((val) => setEditorValue(val), [setEditorValue])
+  const selectChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectState(e.target.value), [])
 
   return (
     <GridWrapper>
       <Button onClick = {buttonClicked}>Run</Button>
-      <select value={selectState} onChange={(e)=>setSelectState(e.target.value)}>
+      <select value={selectState} onChange={selectChanged}>
         <option value='html'>HTML</option>
         <option value='css'>CSS</option>
         <option value='javascript'>JavaScript</option>
