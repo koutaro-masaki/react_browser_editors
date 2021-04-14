@@ -89,7 +89,7 @@ const Sample = () => {
         />
       </Box1>
       <IFrameContent>
-        <IFrame srcDoc= {iframeDoc} />
+        <IFrame src = 'http://localhost:8080/' />
       </IFrameContent>
     </GridWrapper>
   )
