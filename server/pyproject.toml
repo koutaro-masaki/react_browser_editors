@@ -8,6 +8,7 @@ authors = ["koutaro-masaki <koutaro.masaki@glucose.jp>"]
 python = "^3.7"
 Flask = "^1.1.2"
 SQLAlchemy = "^1.4.7"
+Flask-SQLAlchemy = "^2.5.1"
 
 [tool.poetry.dev-dependencies]
 autopep8 = "^1.5.6"
