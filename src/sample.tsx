@@ -45,6 +45,18 @@ const IFrame = styled.iframe({
 interface SelectMap {
   [key: string] : [string, React.Dispatch<React.SetStateAction<string>>]
 }
+interface PostResponceJson {
+  id: number
+}
+interface WorkJson {
+  html: string,
+  css: string,
+  javascript: string
+}
+
+const makeHTMLDocument: ((json: WorkJson) => string) = (json) => {
+  return `${json.html}<style>${json.css}</style><script>${json.javascript}<\/script>`
+}
 
 const Sample = () => {
   const [htmlEditorValue, setHtmlEditorValue] = useState('<h1>Hello, World!</h1>')
@@ -54,9 +66,9 @@ const Sample = () => {
   const [selectState, setSelectState] = useState('html')
   const [workId, setWorkId] = useState<number|undefined>(undefined)
 
-  const buttonClicked = useCallback(() => {
+  const buttonClicked = useCallback(async () => {
     if (workId == undefined) {
-      fetch('http://localhost:5000/work', {
+      const id = await fetch('http://localhost:5000/work', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,26 +79,27 @@ const Sample = () => {
           'javascript': scriptEditorValue,
         }),
       })
+          .then(async (response) => {
+            if (!response.ok) throw new Error()
+            return await response.json().then((resJson: PostResponceJson) => resJson.id)
+          })
+          .catch((error) => {
+            console.error(error)
+            return undefined
+          })
+
+      if (id == undefined) return
+
+      setWorkId(id)
+
+      fetch(`http://localhost:5000/work/${id}`, {method: 'GET'})
           .then((response) => {
             if (!response.ok) throw new Error()
-            response.json().then((resJson) => {
-              setWorkId(resJson.id)
-              fetch(`http://localhost:5000/work/${resJson.id}`, {
-                method: 'GET',
-              })
-                  .then((response) => {
-                    if (!response.ok) throw new Error()
-
-                    response.json().then((resJson) => {
-                      setIFrameValue(JSON.stringify(resJson))
-                    })
-                  })
-                  .catch((error) => console.error(error))
-            })
+            response.json().then((resJson) => setIFrameValue(makeHTMLDocument(resJson)))
           })
           .catch((error) => console.error(error))
     } else {
-      fetch(`http://localhost:5000/work/${workId}`, {
+      await fetch(`http://localhost:5000/work/${workId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -97,15 +110,10 @@ const Sample = () => {
           'javascript': scriptEditorValue,
         }),
       })
-      fetch(`http://localhost:5000/work/${workId}`, {
-        method: 'GET',
-      })
+      fetch(`http://localhost:5000/work/${workId}`, {method: 'GET'})
           .then((response) => {
             if (!response.ok) throw new Error()
-
-            response.json().then((resJson) => {
-              setIFrameValue(JSON.stringify(resJson))
-            })
+            response.json().then((resJson) => setIFrameValue(makeHTMLDocument(resJson)))
           })
           .catch((error) => console.error(error))
     }
