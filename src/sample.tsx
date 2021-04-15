@@ -52,11 +52,64 @@ const Sample = () => {
   const [scriptEditorValue, setScriptEditorValue] = useState('console.log("called");')
   const [iframeDoc, setIFrameValue] = useState('')
   const [selectState, setSelectState] = useState('html')
+  const [workId, setWorkId] = useState<number|undefined>(undefined)
 
-  // 中身のチェック等は一切せずにくっつけてiframeのsrcdocに渡すだけ
-  const source = useMemo(()=>`${htmlEditorValue}<style>${cssEditorValue}</style><script>${scriptEditorValue}<\/script>`,
-      [htmlEditorValue, cssEditorValue, scriptEditorValue])
-  const buttonClicked = useCallback(() => setIFrameValue(source), [source])
+  const buttonClicked = useCallback(() => {
+    if (workId == undefined) {
+      fetch('http://localhost:5000/work', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          'html': htmlEditorValue,
+          'css': cssEditorValue,
+          'javascript': scriptEditorValue,
+        }),
+      })
+          .then((response) => {
+            if (!response.ok) throw new Error()
+            response.json().then((resJson) => {
+              setWorkId(resJson.id)
+              fetch(`http://localhost:5000/work/${resJson.id}`, {
+                method: 'GET',
+              })
+                  .then((response) => {
+                    if (!response.ok) throw new Error()
+
+                    response.json().then((resJson) => {
+                      setIFrameValue(JSON.stringify(resJson))
+                    })
+                  })
+                  .catch((error) => console.error(error))
+            })
+          })
+          .catch((error) => console.error(error))
+    } else {
+      fetch(`http://localhost:5000/work/${workId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          'html': htmlEditorValue,
+          'css': cssEditorValue,
+          'javascript': scriptEditorValue,
+        }),
+      })
+      fetch(`http://localhost:5000/work/${workId}`, {
+        method: 'GET',
+      })
+          .then((response) => {
+            if (!response.ok) throw new Error()
+
+            response.json().then((resJson) => {
+              setIFrameValue(JSON.stringify(resJson))
+            })
+          })
+          .catch((error) => console.error(error))
+    }
+  }, [cssEditorValue, htmlEditorValue, scriptEditorValue, workId])
 
   const [editorValue, setEditorValue] = useMemo(() => {
     const selectMap : SelectMap = {
@@ -70,28 +123,31 @@ const Sample = () => {
   const selectChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectState(e.target.value), [])
 
   return (
-    <GridWrapper>
-      <Button onClick = {buttonClicked}>Run</Button>
-      <select value={selectState} onChange={selectChanged}>
-        <option value='html'>HTML</option>
-        <option value='css'>CSS</option>
-        <option value='javascript'>JavaScript</option>
-      </select>
-      <Box1>
-        <AceEditor
-          mode = {selectState}
-          theme = 'monokai'
-          name = 'html-editor'
-          height = '200px'
-          width = '320px'
-          value = {editorValue}
-          onChange = {editorChanged}
-        />
-      </Box1>
-      <IFrameContent>
-        <IFrame src = 'http://localhost:8080/' />
-      </IFrameContent>
-    </GridWrapper>
+    <div>
+      <div>Work ID: {workId}</div>
+      <GridWrapper>
+        <Button onClick = {buttonClicked}>Run</Button>
+        <select value={selectState} onChange={selectChanged}>
+          <option value='html'>HTML</option>
+          <option value='css'>CSS</option>
+          <option value='javascript'>JavaScript</option>
+        </select>
+        <Box1>
+          <AceEditor
+            mode = {selectState}
+            theme = 'monokai'
+            name = 'html-editor'
+            height = '200px'
+            width = '320px'
+            value = {editorValue}
+            onChange = {editorChanged}
+          />
+        </Box1>
+        <IFrameContent>
+          <IFrame srcDoc = {iframeDoc} />
+        </IFrameContent>
+      </GridWrapper>
+    </div>
   )
 }
 
