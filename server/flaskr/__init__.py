@@ -78,7 +78,7 @@ def create_app(test_config=None):
             db.session.close()
             return jsonify({}), 200
         else:
-            return abort(400)
+            return abort(500)
 
     @app.route('/work', methods=['POST'])
     def post():
@@ -115,5 +115,7 @@ def create_app(test_config=None):
             }
             db.session.close()
             return jsonify(result), 200
+        else:
+            return abort(500)
 
     return app
