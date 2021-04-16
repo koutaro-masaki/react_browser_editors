@@ -21,7 +21,7 @@ module.exports = {
           {
             loader: 'babel-loader',
             options: {
-              plugins: [require.resolve('react-refresh/babel')],
+              plugins: [require.resolve('react-refresh/babel'), '@babel/plugin-transform-runtime'],
             },
           },
         ],

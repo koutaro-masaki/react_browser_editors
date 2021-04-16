@@ -1,4 +1,4 @@
-import React, {useState, useMemo, useCallback} from 'react'
+import React, {useState, useMemo, useCallback, useRef, useEffect} from 'react'
 import AceEditor from 'react-ace'
 import styled from 'styled-components'
 
@@ -46,15 +46,27 @@ interface SelectMap {
   [key: string] : [string, React.Dispatch<React.SetStateAction<string>>]
 }
 interface PostResponceJson {
-  id: number
+  id: string
 }
-interface WorkJson {
+interface Work {
   html: string,
   css: string,
   javascript: string
 }
 
-const makeHTMLDocument: ((json: WorkJson) => string) = (json) => {
+const getWork: ((id: string) => Promise<Work|void>) = async (id) => {
+  try {
+    const response = await fetch(`http://localhost:5000/work/${id}`, {method: 'GET'})
+    if (!response.ok) {
+      throw new Error()
+    }
+    return await response.json()
+  } catch (error) {
+    return console.error(error)
+  }
+}
+
+const makeHTMLDocument: ((json: Work) => string) = (json) => {
   return `${json.html}<style>${json.css}</style><script>${json.javascript}<\/script>`
 }
 
@@ -62,11 +74,21 @@ const Sample = () => {
   const [htmlEditorValue, setHtmlEditorValue] = useState('<h1>Hello, World!</h1>')
   const [cssEditorValue, setCssEditorValue] = useState('')
   const [scriptEditorValue, setScriptEditorValue] = useState('console.log("called");')
-  const [iframeDoc, setIFrameValue] = useState('')
+  const [iframeSrcDoc, setIFrameSrcDoc] = useState('')
   const [selectState, setSelectState] = useState('html')
-  const [workId, setWorkId] = useState<number|undefined>(undefined)
+  const [workId, setWorkId] = useState('')
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  const buttonClicked = useCallback(async () => {
+  useEffect(() => {
+    const w = iframeRef.current?.contentWindow
+    console.log('heiheihei')
+    console.log(w)
+    if (w) {
+      w.console.log = (...data: any[]) => alert('data')
+    }
+  })
+
+  const runButtonClicked = useCallback(async () => {
     if (workId == undefined) {
       const id = await fetch('http://localhost:5000/work', {
         method: 'POST',
@@ -92,12 +114,10 @@ const Sample = () => {
 
       setWorkId(id)
 
-      fetch(`http://localhost:5000/work/${id}`, {method: 'GET'})
-          .then((response) => {
-            if (!response.ok) throw new Error()
-            response.json().then((resJson) => setIFrameValue(makeHTMLDocument(resJson)))
-          })
-          .catch((error) => console.error(error))
+      const work = await getWork(id)
+      if (work != null) {
+        setIFrameSrcDoc(makeHTMLDocument(work))
+      }
     } else {
       await fetch(`http://localhost:5000/work/${workId}`, {
         method: 'PUT',
@@ -110,14 +130,28 @@ const Sample = () => {
           'javascript': scriptEditorValue,
         }),
       })
-      fetch(`http://localhost:5000/work/${workId}`, {method: 'GET'})
-          .then((response) => {
-            if (!response.ok) throw new Error()
-            response.json().then((resJson) => setIFrameValue(makeHTMLDocument(resJson)))
-          })
-          .catch((error) => console.error(error))
+
+      const work = await getWork(workId)
+      if (work != null) {
+        setIFrameSrcDoc(makeHTMLDocument(work))
+      }
     }
   }, [cssEditorValue, htmlEditorValue, scriptEditorValue, workId])
+
+  // 入力されているidでwork/{id}をGETで叩いて各editorValueに格納する
+  // 実行即保存って怖いね
+  const importButtonClicked = useCallback(async () => {
+    // とりあえず叩く。無効な値ならalert出す
+    const work = await getWork(workId)
+    if (work != null) {
+      setHtmlEditorValue(work.html)
+      setCssEditorValue(work.css)
+      setScriptEditorValue(work.javascript)
+      setIFrameSrcDoc(makeHTMLDocument(work))
+    } else {
+      alert('取得に失敗しました. idが有効か確認してください.')
+    }
+  }, [workId])
 
   const [editorValue, setEditorValue] = useMemo(() => {
     const selectMap : SelectMap = {
@@ -128,13 +162,19 @@ const Sample = () => {
     return selectMap[selectState]
   }, [cssEditorValue, htmlEditorValue, scriptEditorValue, selectState])
   const editorChanged = useCallback((val: string) => setEditorValue(val), [setEditorValue])
-  const selectChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => setSelectState(e.target.value), [])
+  const selectChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) =>
+    setSelectState(e.target.value), [])
+  const inputChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setWorkId(e.target.value), [])
 
   return (
     <div>
-      <div>Work ID: {workId}</div>
+      <div>
+        Work ID:
+        <input type='number' min='1' value={workId} onChange={inputChanged}/>
+        <button onClick={importButtonClicked}>読込</button>
+      </div>
       <GridWrapper>
-        <Button onClick = {buttonClicked}>Run</Button>
+        <Button onClick = {runButtonClicked}>Run</Button>
         <select value={selectState} onChange={selectChanged}>
           <option value='html'>HTML</option>
           <option value='css'>CSS</option>
@@ -152,7 +192,7 @@ const Sample = () => {
           />
         </Box1>
         <IFrameContent>
-          <IFrame srcDoc = {iframeDoc} />
+          <IFrame srcDoc = {iframeSrcDoc} ref={iframeRef} />
         </IFrameContent>
       </GridWrapper>
     </div>
