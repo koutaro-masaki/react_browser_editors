@@ -1,20 +1,40 @@
-import React, {useState, useCallback, useRef, useEffect} from 'react'
-import {Ace} from 'ace-builds'
+import React, {useState, useCallback, useRef} from 'react'
+import Styled from 'styled-components'
 import AceEditor from 'react-ace'
 
 import 'ace-builds/src-noconflict/mode-javascript'
 import 'ace-builds/src-noconflict/theme-monokai'
 
+const ErrorTextArea = Styled.textarea({
+  resize: 'none',
+  width: '320px',
+})
+
 const decolateSrc = (src:string) => {
-  return `<script>try{${src}}catch(error){alert(error)}<\/script>`
+  // eslint-disable-next-line max-len
+  return `<script>try{${src}}catch(error){window.ERROR_MESSAGE = error}<\/script>`
 }
 
 const IFrameTest = () => {
   const [editorValue, setEditorValue] = useState('')
   const [srcDoc, setSrcDoc] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+  const iframeEl = useRef<HTMLIFrameElement>(null)
 
   const editorChanged = useCallback((val: string) => setEditorValue(val), [setEditorValue])
-  const buttonClicked = useCallback(() => setSrcDoc(decolateSrc(editorValue)), [editorValue])
+  const buttonClicked = useCallback(() => {
+    setSrcDoc(decolateSrc(editorValue))
+  }, [editorValue])
+  const pickErrorUp = useCallback(() => {
+    const iframeWindow = iframeEl.current?.contentWindow
+    if (iframeWindow) {
+      if (iframeWindow.ERROR_MESSAGE) {
+        setErrorMessage(iframeWindow.ERROR_MESSAGE)
+      } else {
+        setErrorMessage('')
+      }
+    }
+  }, [])
 
   return (
     <div>
@@ -29,7 +49,14 @@ const IFrameTest = () => {
         onChange = {editorChanged}
       />
       <iframe
+        ref = {iframeEl}
         srcDoc = {srcDoc}
+        onLoad = {pickErrorUp}
+      />
+      <br/>
+      <ErrorTextArea
+        value = {errorMessage}
+        readOnly
       />
     </div>
   )
