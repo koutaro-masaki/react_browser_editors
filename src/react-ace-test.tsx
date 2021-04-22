@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useRef, useEffect} from 'react'
+import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react'
 import {Ace, createEditSession} from 'ace-builds'
 import AceEditor from 'react-ace'
 
@@ -17,9 +17,9 @@ const enumerateAnnotations: ((annotations: Ace.Annotation[]) => void) = (annotat
 }
 
 const AceEditorTest = () => {
-  const [htmlSession] = useState(createEditSession('', 'ace/mode/html'))
-  const [cssSession] = useState(createEditSession('', 'ace/mode/css'))
-  const [jsSession] = useState(createEditSession('', 'ace/mode/javascript'))
+  const htmlSession = useMemo(() => createEditSession('', 'ace/mode/html'), [])
+  const cssSession = useMemo(() => createEditSession('', 'ace/mode/css'), [])
+  const jsSession = useMemo(() => createEditSession('', 'ace/mode/javascript'), [])
 
   const [selectState, setSelectState] = useState('html')
   const [text, setText] = useState('')
@@ -40,7 +40,7 @@ const AceEditorTest = () => {
     }
     setSelectState(mode)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [aceEditorEl.current])
   const buttonClicked = useCallback(() => {
     const htmlErrors = htmlSession.getAnnotations()
         .map((a) => a.row != undefined ? `${a.row +1}行目: [${a.type}] ${a.text}` : a.text)
@@ -72,7 +72,7 @@ const AceEditorTest = () => {
 
     aceEditorEl.current?.editor.setSession(htmlSession)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [aceEditorEl.current])
 
   return (
     <div>
