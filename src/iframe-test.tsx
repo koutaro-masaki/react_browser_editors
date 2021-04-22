@@ -12,7 +12,7 @@ const ErrorTextArea = Styled.textarea({
 
 const decolateSrc = (src:string) => {
   // eslint-disable-next-line max-len
-  return `<script>try{${src}}catch(error){window.ERROR_MESSAGE = error}<\/script>`
+  return `<!DOCTYPE html><html lang="ja"><script>try{${src}}catch(error){window.ERROR_MESSAGE = error}<\/script></html>`
 }
 
 const IFrameTest = () => {

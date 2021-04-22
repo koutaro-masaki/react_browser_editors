@@ -1,4 +1,5 @@
 import React, {useState, useMemo, useCallback, useRef, useEffect} from 'react'
+import {Ace, createEditSession} from 'ace-builds'
 import AceEditor from 'react-ace'
 import styled from 'styled-components'
 
@@ -67,39 +68,33 @@ const getWork: ((id: string) => Promise<Work|void>) = async (id) => {
 }
 
 const makeHTMLDocument: ((json: Work) => string) = (json) => {
-  return `${json.html}<style>${json.css}</style><script>${json.javascript}<\/script>`
+  // eslint-disable-next-line max-len
+  return `${json.html}<style>${json.css}</style><script>try{${json.javascript}}catch(error){window.ERROR_MESSAGE = error}<\/script>`
 }
 
 const Sample = () => {
-  const [htmlEditorValue, setHtmlEditorValue] = useState('<h1>Hello, World!</h1>')
-  const [cssEditorValue, setCssEditorValue] = useState('')
-  const [scriptEditorValue, setScriptEditorValue] = useState('console.log("called");')
+  const htmlSession = useMemo(() => createEditSession('<!DOCTYPE html>\n<h1>Hello, World!</h1>', 'ace/mode/html'), [])
+  const cssSession = useMemo(() => createEditSession('', 'ace/mode/css'), [])
+  const jsSession = useMemo(() => createEditSession('', 'ace/mode/javascript'), [])
   const [iframeSrcDoc, setIFrameSrcDoc] = useState('')
   const [selectState, setSelectState] = useState('html')
   const [workId, setWorkId] = useState('')
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-
-  useEffect(() => {
-    const w = iframeRef.current?.contentWindow
-    console.log('heiheihei')
-    console.log(w)
-    if (w) {
-      w.console.log = (...data: any[]) => alert('data')
-    }
-  })
+  const iframeEl = useRef<HTMLIFrameElement>(null)
+  const aceEditorEl = useRef<AceEditor>(null)
 
   const runButtonClicked = useCallback(async () => {
-    if (workId == undefined) {
+    const body = {
+      'html': htmlSession.getValue(),
+      'css': cssSession.getValue(),
+      'javascript': jsSession.getValue(),
+    }
+    if (workId == '') {
       const id = await fetch('http://localhost:5000/work', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          'html': htmlEditorValue,
-          'css': cssEditorValue,
-          'javascript': scriptEditorValue,
-        }),
+        body: JSON.stringify(body),
       })
           .then(async (response) => {
             if (!response.ok) throw new Error()
@@ -116,6 +111,17 @@ const Sample = () => {
 
       const work = await getWork(id)
       if (work != null) {
+        // 構文エラーがあれば実行しない.
+        if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+          alert('HTMLに構文エラーがあります.')
+          return
+        } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+          alert('CSSに構文エラーがあります.')
+          return
+        } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+          alert('JavaScriptに構文エラーがあります.')
+          return
+        }
         setIFrameSrcDoc(makeHTMLDocument(work))
       }
     } else {
@@ -124,47 +130,82 @@ const Sample = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          'html': htmlEditorValue,
-          'css': cssEditorValue,
-          'javascript': scriptEditorValue,
-        }),
+        body: JSON.stringify(body),
       })
 
       const work = await getWork(workId)
       if (work != null) {
+        // 構文エラーがあれば実行しない.
+        if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+          alert('HTMLに構文エラーがあります.')
+          return
+        } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+          alert('CSSに構文エラーがあります.')
+          return
+        } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+          alert('JavaScriptに構文エラーがあります.')
+          return
+        }
         setIFrameSrcDoc(makeHTMLDocument(work))
       }
     }
-  }, [cssEditorValue, htmlEditorValue, scriptEditorValue, workId])
+  }, [cssSession, htmlSession, jsSession, workId])
 
   // 入力されているidでwork/{id}をGETで叩いて各editorValueに格納する
-  // 実行即保存って怖いね
   const importButtonClicked = useCallback(async () => {
     // とりあえず叩く。無効な値ならalert出す
     const work = await getWork(workId)
     if (work != null) {
-      setHtmlEditorValue(work.html)
-      setCssEditorValue(work.css)
-      setScriptEditorValue(work.javascript)
+      htmlSession.setValue(work.html)
+      cssSession.setValue(work.css)
+      jsSession.setValue(work.javascript)
+      // 構文エラーがあれば実行しない.
+      if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+        alert('HTMLに構文エラーがあります.')
+        return
+      } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+        alert('CSSに構文エラーがあります.')
+        return
+      } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+        alert('JavaScriptに構文エラーがあります.')
+        return
+      }
       setIFrameSrcDoc(makeHTMLDocument(work))
     } else {
       alert('取得に失敗しました. idが有効か確認してください.')
     }
-  }, [workId])
+  }, [cssSession, htmlSession, jsSession, workId])
 
-  const [editorValue, setEditorValue] = useMemo(() => {
-    const selectMap : SelectMap = {
-      'html': [htmlEditorValue, setHtmlEditorValue],
-      'css': [cssEditorValue, setCssEditorValue],
-      'javascript': [scriptEditorValue, setScriptEditorValue],
+  const selectChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) =>{
+    const mode = e.target.value
+    switch (mode) {
+      case 'html':
+        aceEditorEl.current?.editor.setSession(htmlSession)
+        break
+      case 'css':
+        aceEditorEl.current?.editor.setSession(cssSession)
+        break
+      case 'javascript':
+        aceEditorEl.current?.editor.setSession(jsSession)
+        break
     }
-    return selectMap[selectState]
-  }, [cssEditorValue, htmlEditorValue, scriptEditorValue, selectState])
-  const editorChanged = useCallback((val: string) => setEditorValue(val), [setEditorValue])
-  const selectChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) =>
-    setSelectState(e.target.value), [])
+    setSelectState(mode)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aceEditorEl.current])
   const inputChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setWorkId(e.target.value), [])
+
+  const pickErrorUp = useCallback(() => {
+    const iframeWindow = iframeEl.current?.contentWindow
+    if (iframeWindow) {
+      if (iframeWindow.ERROR_MESSAGE) {
+        alert(iframeWindow.ERROR_MESSAGE)
+      }
+    }
+  }, [])
+  useEffect(() => {
+    aceEditorEl.current?.editor.setSession(htmlSession)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aceEditorEl.current])
 
   return (
     <div>
@@ -182,17 +223,20 @@ const Sample = () => {
         </select>
         <Box1>
           <AceEditor
-            mode = {selectState}
+            ref = {aceEditorEl}
+            mode = 'javascript'
             theme = 'monokai'
             name = 'html-editor'
             height = '200px'
             width = '320px'
-            value = {editorValue}
-            onChange = {editorChanged}
           />
         </Box1>
         <IFrameContent>
-          <IFrame srcDoc = {iframeSrcDoc} ref={iframeRef} />
+          <IFrame
+            onLoad = {pickErrorUp}
+            srcDoc = {iframeSrcDoc}
+            ref = {iframeEl}
+          />
         </IFrameContent>
       </GridWrapper>
     </div>
