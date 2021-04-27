@@ -3,6 +3,8 @@ import click
 
 from flask import Flask, request, Markup, abort, jsonify
 from flask.cli import with_appcontext
+from flask_cors import CORS
+
 from .models.work import Work
 from .db import db, init_db
 
@@ -15,6 +17,9 @@ def create_app(test_config=None):
         JSON_AS_ASCII=False
     )
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///flaskr.sqlite'
+    app.config['Access-Control-Allow-Origin'] = '*'
+
+    CORS(app)
 
     if test_config is None:
         # load the instance config, if it exists, when not testing

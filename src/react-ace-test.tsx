@@ -2,7 +2,10 @@ import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react'
 import {Ace, createEditSession} from 'ace-builds'
 import AceEditor from 'react-ace'
 
+// createEditSessionのモード指定をパスで行うために必要
 import 'ace-builds/webpack-resolver'
+
+// モード読み込み
 import 'ace-builds/src-noconflict/mode-javascript'
 import 'ace-builds/src-noconflict/mode-css'
 import 'ace-builds/src-noconflict/mode-html'
@@ -13,7 +16,7 @@ const enumerateAnnotations: ((annotations: Ace.Annotation[]) => void) = (annotat
   annotations.forEach((a) => console.log(a))
 }
 
-const AceEditorPage = () => {
+const AceEditorTest = () => {
   const htmlSession = useMemo(() => createEditSession('', 'ace/mode/html'), [])
   const cssSession = useMemo(() => createEditSession('', 'ace/mode/css'), [])
   const jsSession = useMemo(() => createEditSession('', 'ace/mode/javascript'), [])
@@ -40,23 +43,18 @@ const AceEditorPage = () => {
   }, [aceEditorEl.current])
   const buttonClicked = useCallback(() => {
     const htmlErrors = htmlSession.getAnnotations()
-        .filter((a) => a.type == 'error')
-        .map((a) => a.row != undefined ? `${a.row +1}行目: ${a.text}` : a.text)
+        .map((a) => a.row != undefined ? `${a.row +1}行目: [${a.type}] ${a.text}` : a.text)
         .join('\n')
     const cssErroes = cssSession.getAnnotations()
-        .filter((a) => a.type == 'error')
-        .map((a) => a.row != undefined ? `${a.row +1}行目: ${a.text}` : a.text)
+        .map((a) => a.row != undefined ? `${a.row +1}行目: [${a.type}] ${a.text}` : a.text)
         .join('\n')
     const jsErroes = jsSession.getAnnotations()
-        .filter((a) => a.type == 'error')
-        .map((a) => a.row != undefined ? `${a.row +1}行目: ${a.text}` : a.text)
+        .map((a) => a.row != undefined ? `${a.row +1}行目: [${a.type}] ${a.text}` : a.text)
         .join('\n')
 
-    setText(`Error\n- html\n${htmlErrors}\n- css\n${cssErroes}\n- javascript\n${jsErroes}`)
+    setText(`Annotations\n- html\n${htmlErrors}\n- css\n${cssErroes}\n- javascript\n${jsErroes}`)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const textChanged = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) =>
-    setText(e.target.value), [])
 
   useEffect(() => {
     htmlSession.on('changeAnnotation', () => {
@@ -71,9 +69,10 @@ const AceEditorPage = () => {
       const annotations = jsSession.getAnnotations()
       enumerateAnnotations(annotations)
     })
+
     aceEditorEl.current?.editor.setSession(htmlSession)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [aceEditorEl.current])
 
   return (
     <div>
@@ -87,6 +86,7 @@ const AceEditorPage = () => {
       </select>
       <AceEditor
         ref = {aceEditorEl}
+        // 初期値を指定しておかないと存在しないモードを読みに行ってしまう
         mode = 'javascript'
         theme = 'monokai'
         name = 'ace-editor-sample'
@@ -95,9 +95,9 @@ const AceEditorPage = () => {
       />
       <button onClick={buttonClicked}>チェック</button>
       <br></br>
-      <textarea value={text} onChange={textChanged}></textarea>
+      <textarea value={text} readOnly></textarea>
     </div>
   )
 }
 
-export default AceEditorPage
+export default AceEditorTest

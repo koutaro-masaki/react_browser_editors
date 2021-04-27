@@ -1,7 +1,8 @@
 import React from 'react'
 import {BrowserRouter as Router, Switch, Route, Link, useRouteMatch, useParams} from 'react-router-dom'
 
-import AceEditorPage from './ace_editor'
+import ReactAceTest from './react-ace-test'
+import IFrameTest from './iframe-test'
 import SamplePage from './sample'
 
 const App = () => {
@@ -14,7 +15,10 @@ const App = () => {
               <Link to="/">Home</Link>
             </li>
             <li>
-              <Link to="/ace-editor">Ace Editor</Link>
+              <Link to="/ace-editor-test">Ace Editor</Link>
+            </li>
+            <li>
+              <Link to='/iframe-test'>iframe</Link>
             </li>
             <li>
               <Link to='/sample-page'>Editor Sample</Link>
@@ -26,8 +30,11 @@ const App = () => {
         </nav>
 
         <Switch>
-          <Route path="/ace-editor">
-            <AceEditorPage />
+          <Route path="/ace-editor-test">
+            <ReactAceTest />
+          </Route>
+          <Route path='/iframe-test'>
+            <IFrameTest />
           </Route>
           <Route path='/sample-page'>
             <SamplePage />
