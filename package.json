@@ -6,6 +6,7 @@
     "codemirror": "^5.60.0",
     "eslint-plugin-react-hooks": "^0.0.0-9d48779b3",
     "executor-editor": "^2.0.1",
+    "jszip": "^3.6.0",
     "prismjs": "^1.23.0",
     "react": "^17.0.2",
     "react-ace": "^9.4.0",
