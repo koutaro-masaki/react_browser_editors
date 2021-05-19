@@ -42,7 +42,6 @@ def create_app(test_config=None):
     # a simple page that says hello
     @app.route('/hello')
     def hello():
-        print('ﾜｯ･･･ｱ･･･')
         return 'Hello, World!'
 
     # APIテスト
@@ -134,7 +133,6 @@ def create_app(test_config=None):
             abort(404)
 
         # zipファイルを作成する
-        # 作成先のディレクトリどうする？
         zip_stream = io.BytesIO()
         with zipfile.ZipFile(zip_stream, 'w') as zip_temp:
             zip_temp.writestr('index.html', work.html)
