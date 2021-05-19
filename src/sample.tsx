@@ -1,5 +1,6 @@
 import React, {useState, useMemo, useCallback, useRef, useEffect} from 'react'
-import {Ace, createEditSession} from 'ace-builds'
+import {createEditSession} from 'ace-builds'
+import {useHistory} from 'react-router-dom'
 import AceEditor from 'react-ace'
 import styled from 'styled-components'
 
@@ -8,10 +9,12 @@ import 'ace-builds/src-noconflict/mode-html'
 import 'ace-builds/src-noconflict/mode-css'
 import 'ace-builds/src-noconflict/theme-monokai'
 
+const URL = 'http://localhost:5000'
+
 const GridWrapper = styled.div({
   display: 'grid',
-  gridTemplateRows: '50px 200px 200px 200px',
-  gridTemplateColumns: '320px 1fr',
+  gridTemplateRows: '30px 500px',
+  gridTemplateColumns: '500px 500px',
   gridGap: '10px',
   gridAutoFlow: 'column',
 })
@@ -22,30 +25,20 @@ const Button = styled.button({
   justifySelf: 'left',
   alignSelf: 'end',
   width: 80,
-  height: 40,
+  height: 30,
 })
 
 const Box1 = styled.div({
-  gridColumn: '1',
-  gridRow: '2',
+  gridColumn: 1,
+  gridRow: 2,
 })
 
 const IFrameContent = styled.div({
   position: 'relative',
-  gridColumn: '2',
-  gridRow: '2/5',
-})
-const IFrame = styled.iframe({
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  width: '100%',
-  height: '100%',
+  gridColumn: 2,
+  gridRow: 2,
 })
 
-interface SelectMap {
-  [key: string] : [string, React.Dispatch<React.SetStateAction<string>>]
-}
 interface PostResponceJson {
   id: string
 }
@@ -55,9 +48,17 @@ interface Work {
   javascript: string
 }
 
-const getWork: ((id: string) => Promise<Work|void>) = async (id) => {
+const presetSizes : {height:number, width:number}[] = [
+  {height: 320, width: 320},
+  {height: 480, width: 320},
+  {height: 300, width: 400},
+  {height: 480, width: 600},
+  {height: 800, width: 800},
+]
+
+const getWork: ((id: number) => Promise<Work|void>) = async (id) => {
   try {
-    const response = await fetch(`http://localhost:5000/work/${id}`, {method: 'GET'})
+    const response = await fetch(`${URL}/work/${id}`, {method: 'GET'})
     if (!response.ok) {
       throw new Error()
     }
@@ -67,9 +68,29 @@ const getWork: ((id: string) => Promise<Work|void>) = async (id) => {
   }
 }
 
+const saveWork: ((work: Work, id: number | undefined) => Promise<Response>) = async (work, id) => {
+  if (id == undefined) {
+    return fetch(`${URL}/work`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(work),
+    })
+  } else {
+    return fetch(`${URL}/work/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(work),
+    })
+  }
+}
+
 const makeHTMLDocument: ((json: Work) => string) = (json) => {
   // eslint-disable-next-line max-len
-  return `${json.html}<style>${json.css}</style><script>try{${json.javascript}}catch(error){window.ERROR_MESSAGE = error}<\/script>`
+  return `${json.html}<style>${json.css}</style><script>try{${json.javascript}}catch(error){window.parent.postMessage(error, 'http://localhost:3000/')}<\/script>`
 }
 
 const Sample = () => {
@@ -79,104 +100,109 @@ const Sample = () => {
   const [iframeSrcDoc, setIFrameSrcDoc] = useState('')
   const [selectState, setSelectState] = useState('html')
   const [workId, setWorkId] = useState('')
-  const iframeEl = useRef<HTMLIFrameElement>(null)
   const aceEditorEl = useRef<AceEditor>(null)
+  const iframeEl = useRef<HTMLIFrameElement>(null)
+  const [selectedSizeIndex, setSelectedSizeIndex] = useState(0)
+  const [needReload, setNeedReload] = useState(false)
+  const history = useHistory<{filename: string, filebody: string}[]>()
 
-  const runButtonClicked = useCallback(async () => {
-    const body = {
+  const downloadZip = useCallback(async () => {
+    // DLする前に保存する
+    const id = await saveWork({
       'html': htmlSession.getValue(),
       'css': cssSession.getValue(),
       'javascript': jsSession.getValue(),
-    }
-    if (workId == '') {
-      const id = await fetch('http://localhost:5000/work', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      })
-          .then(async (response) => {
-            if (!response.ok) throw new Error()
-            return await response.json().then((resJson: PostResponceJson) => resJson.id)
-          })
-          .catch((error) => {
-            console.error(error)
-            return undefined
-          })
+    }, parseInt(workId))
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`${response.status}: ${response.statusText}`)
+          }
+          return await response.json().then((resJson: PostResponceJson) => parseInt(resJson.id))
+        })
+        .catch((error) => {
+          console.error(error)
+          alert('保存に失敗しました')
+        })
 
-      if (id == undefined) return
-
-      setWorkId(id)
-
-      const work = await getWork(id)
-      if (work != null) {
-        // 構文エラーがあれば実行しない.
-        if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-          alert('HTMLに構文エラーがあります.')
-          return
-        } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-          alert('CSSに構文エラーがあります.')
-          return
-        } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-          alert('JavaScriptに構文エラーがあります.')
-          return
-        }
-        setIFrameSrcDoc(makeHTMLDocument(work))
-      }
-    } else {
-      await fetch(`http://localhost:5000/work/${workId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      })
-
-      const work = await getWork(workId)
-      if (work != null) {
-        // 構文エラーがあれば実行しない.
-        if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-          alert('HTMLに構文エラーがあります.')
-          return
-        } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-          alert('CSSに構文エラーがあります.')
-          return
-        } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-          alert('JavaScriptに構文エラーがあります.')
-          return
-        }
-        setIFrameSrcDoc(makeHTMLDocument(work))
-      }
+    if (typeof id == 'number') {
+      setWorkId(id.toString())
+      window.open(`${URL}/download/${id}`, '')
     }
   }, [cssSession, htmlSession, jsSession, workId])
+
+  const runButtonClicked = useCallback(async () => {
+    // 保存する
+    const id = await saveWork({
+      'html': htmlSession.getValue(),
+      'css': cssSession.getValue(),
+      'javascript': jsSession.getValue(),
+    }, workId == '' ? undefined : parseInt(workId))
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`${response.status}: ${response.statusText}`)
+          }
+          return await response.json().then((resJson: PostResponceJson) => parseInt(resJson.id))
+        })
+        .catch((error) => {
+          console.error(error)
+          alert('保存に失敗しました')
+        })
+
+    // 保存が失敗していた場合
+    if (id == undefined) return
+
+    setWorkId(id.toString())
+
+    const work = await getWork(id)
+    if (work == undefined) return
+
+    // 構文エラーがあれば実行しない.
+    if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+      alert('HTMLに構文エラーがあります.')
+      return
+    } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+      alert('CSSに構文エラーがあります.')
+      return
+    } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+      alert('JavaScriptに構文エラーがあります.')
+      return
+    }
+
+    const doc = makeHTMLDocument(work)
+    if (doc === iframeSrcDoc) {
+      setNeedReload(!needReload)
+    } else {
+      setIFrameSrcDoc(doc)
+    }
+  }, [cssSession, htmlSession, iframeSrcDoc, jsSession, needReload, workId])
 
   // 入力されているidでwork/{id}をGETで叩いて各editorValueに格納する
   const importButtonClicked = useCallback(async () => {
     // とりあえず叩く。無効な値ならalert出す
-    const work = await getWork(workId)
-    if (work != null) {
-      htmlSession.setValue(work.html)
-      cssSession.setValue(work.css)
-      jsSession.setValue(work.javascript)
-      // 構文エラーがあれば実行しない.
-      if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-        alert('HTMLに構文エラーがあります.')
-        return
-      } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-        alert('CSSに構文エラーがあります.')
-        return
-      } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-        alert('JavaScriptに構文エラーがあります.')
-        return
-      }
-      setIFrameSrcDoc(makeHTMLDocument(work))
-    } else {
+    const work = await getWork(parseInt(workId))
+    if (work == undefined) {
       alert('取得に失敗しました. idが有効か確認してください.')
+      return
     }
+
+    htmlSession.setValue(work.html)
+    cssSession.setValue(work.css)
+    jsSession.setValue(work.javascript)
+    // 構文エラーがあれば実行しない.
+    if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+      alert('HTMLに構文エラーがあります.')
+      return
+    } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+      alert('CSSに構文エラーがあります.')
+      return
+    } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
+      alert('JavaScriptに構文エラーがあります.')
+      return
+    }
+    setIFrameSrcDoc(makeHTMLDocument(work))
   }, [cssSession, htmlSession, jsSession, workId])
 
-  const selectChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) =>{
+  const selectedFileChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) =>{
     const mode = e.target.value
     switch (mode) {
       case 'html':
@@ -192,23 +218,48 @@ const Sample = () => {
     setSelectState(mode)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aceEditorEl.current])
+
   const inputChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setWorkId(e.target.value), [])
 
-  const pickErrorUp = useCallback(() => {
-    const iframeWindow = iframeEl.current?.contentWindow
-    if (iframeWindow) {
-      if (iframeWindow.ERROR_MESSAGE) {
-        alert(iframeWindow.ERROR_MESSAGE)
-      }
+  const selectedSizeChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedSizeIndex(e.target.selectedIndex)
+    setNeedReload(!needReload)
+  }, [needReload])
+
+  const printButtonClicked = useCallback(() => {
+    history.push('/print', [
+      {filename: 'index.html', filebody: htmlSession.getValue()},
+      {filename: 'style.css', filebody: cssSession.getValue()},
+      {filename: 'index.js', filebody: jsSession.getValue()},
+    ])
+  }, [cssSession, history, htmlSession, jsSession])
+
+  // コードの書き換えが発生していないがiframeを再読込させたい時の処理
+  useEffect(() => {
+    if (iframeEl.current) {
+      iframeEl.current.srcdoc = iframeEl.current.srcdoc
     }
-  }, [])
+  }, [needReload])
+
+  // エディタのデフォルトsessionの設定
   useEffect(() => {
     aceEditorEl.current?.editor.setSession(htmlSession)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aceEditorEl.current])
 
+  // iframeからエラーメッセージを受け取るイベントの登録
+  useEffect(() => {
+    window.addEventListener('message', (e:MessageEvent<string>) => {
+      alert(e.data)
+    })
+  }, [])
+
   return (
     <div>
+      <div>
+        <button onClick={printButtonClicked}>印刷用ページへ</button>
+        <button onClick={downloadZip}>ダウンロード</button>
+      </div>
       <div>
         Work ID:
         <input type='number' min='1' value={workId} onChange={inputChanged}/>
@@ -216,7 +267,7 @@ const Sample = () => {
       </div>
       <GridWrapper>
         <Button onClick = {runButtonClicked}>Run</Button>
-        <select value={selectState} onChange={selectChanged}>
+        <select value={selectState} onChange={selectedFileChanged}>
           <option value='html'>HTML</option>
           <option value='css'>CSS</option>
           <option value='javascript'>JavaScript</option>
@@ -227,18 +278,26 @@ const Sample = () => {
             mode = 'javascript'
             theme = 'monokai'
             name = 'html-editor'
-            height = '200px'
-            width = '320px'
+            height = '500px'
+            width = '500px'
           />
         </Box1>
         <IFrameContent>
-          <IFrame
-            onLoad = {pickErrorUp}
-            srcDoc = {iframeSrcDoc}
+          <iframe
             ref = {iframeEl}
+            srcDoc = {iframeSrcDoc}
+            sandbox = 'allow-scripts'
+            height = {presetSizes[selectedSizeIndex].height}
+            width = {presetSizes[selectedSizeIndex].width}
           />
         </IFrameContent>
       </GridWrapper>
+      <select value={selectedSizeIndex} onChange={selectedSizeChanged}>
+        {presetSizes.map((item, idx) =>
+          <option key={`item-${idx}`} value={idx}>
+            {`${item.height}x${item.width}`}
+          </option>)}
+      </select>
     </div>
   )
 }

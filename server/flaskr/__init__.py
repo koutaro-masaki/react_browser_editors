@@ -1,8 +1,11 @@
+import io
 import os
 import click
+import zipfile
 
 from flask import Flask, request, Markup, abort, jsonify
 from flask.cli import with_appcontext
+from flask.helpers import send_file
 from flask_cors import CORS
 
 from .models.work import Work
@@ -39,6 +42,7 @@ def create_app(test_config=None):
     # a simple page that says hello
     @app.route('/hello')
     def hello():
+        print('ﾜｯ･･･ｱ･･･')
         return 'Hello, World!'
 
     # APIテスト
@@ -81,7 +85,7 @@ def create_app(test_config=None):
             db.session.add(work)
             db.session.commit()
             db.session.close()
-            return jsonify({}), 200
+            return jsonify({'id': id}), 200
         else:
             return abort(500)
 
@@ -122,5 +126,27 @@ def create_app(test_config=None):
             return jsonify(result), 200
         else:
             return abort(500)
+
+    @app.route('/download/<id>', methods=['GET'])
+    def get_zip(id):
+        work = db.session.query(Work).get(id)
+        if work is None:
+            abort(404)
+
+        # zipファイルを作成する
+        # 作成先のディレクトリどうする？
+        zip_stream = io.BytesIO()
+        with zipfile.ZipFile(zip_stream, 'w') as zip_temp:
+            zip_temp.writestr('index.html', work.html)
+            zip_temp.writestr('style.css', work.css)
+            zip_temp.writestr('index.js', work.javascript)
+
+        zip_stream.seek(0)
+        return send_file(zip_stream, attachment_filename=f'work_{work.id}.zip', as_attachment=True), 200
+
+    @app.after_request
+    def apply_caching(res):
+        res.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return res
 
     return app
