@@ -46,7 +46,7 @@ def create_app(test_config=None):
 
     # APIテスト
     @app.route('/work/<id>', methods=['GET', 'PUT'])
-    def get_or_put(id):
+    def get_or_put_work(id):
         work = db.session.query(Work).get(id)
         if work is None:
             abort(404)
@@ -89,7 +89,7 @@ def create_app(test_config=None):
             return abort(500)
 
     @app.route('/work', methods=['POST'])
-    def post():
+    def post_work():
         if request.method == 'POST':
             json = request.get_json()
 
@@ -142,9 +142,23 @@ def create_app(test_config=None):
         zip_stream.seek(0)
         return send_file(zip_stream, attachment_filename=f'work_{work.id}.zip', as_attachment=True), 200
 
+    @app.route('/works/<work_id>/<filename>', methods=['GET'])
+    def get_file(work_id, filename):
+        work = db.session.query(Work).get(work_id)
+        if work is None:
+            abort(404)
+        print(filename)
+        if filename == 'index.html':
+            return work.html, 200
+        elif filename == 'style.css':
+            return work.css, 200
+        elif filename == 'index.js':
+            return work.javascript, 200
+        abort(500)
+
     @app.after_request
     def apply_caching(res):
-        res.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        res.headers['Cache-Control'] = 'no-cache'
         return res
 
     return app

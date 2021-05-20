@@ -4,6 +4,7 @@ import {useHistory} from 'react-router-dom'
 import AceEditor from 'react-ace'
 import styled from 'styled-components'
 
+import 'ace-builds/webpack-resolver'
 import 'ace-builds/src-noconflict/mode-javascript'
 import 'ace-builds/src-noconflict/mode-html'
 import 'ace-builds/src-noconflict/mode-css'
@@ -79,8 +80,8 @@ const getWork: ((id: number) => Promise<Work|undefined>) = async (id) => {
   }
 }
 
-const saveWork: ((work: Work, id: number | undefined) => Promise<number|undefined>) = async (work, id) => {
-  const response = id == undefined ?
+const saveWork: ((work: Work, id: number | '' | undefined) => Promise<number|''>) = async (work, id) => {
+  const response = id == undefined || id == '' ?
     fetch(`${URL}/work`, {
       method: 'POST',
       headers: {
@@ -105,7 +106,7 @@ const saveWork: ((work: Work, id: number | undefined) => Promise<number|undefine
       .catch((error) => {
         console.error(error)
         alert('保存に失敗しました')
-        return undefined
+        return ''
       })
 }
 
@@ -119,13 +120,11 @@ const Sample = () => {
   const htmlSession = useMemo(() => createEditSession('<!DOCTYPE html>\n<h1>Hello, World!</h1>', 'ace/mode/html'), [])
   const cssSession = useMemo(() => createEditSession('', 'ace/mode/css'), [])
   const jsSession = useMemo(() => createEditSession('', 'ace/mode/javascript'), [])
-  const [iframeSrcDoc, setIFrameSrcDoc] = useState('')
-  const [selectState, setSelectState] = useState('html')
-  const [workId, setWorkId] = useState<number|undefined>(undefined)
-  const aceEditorEl = useRef<AceEditor>(null)
   const iframeEl = useRef<HTMLIFrameElement>(null)
+  const [selectState, setSelectState] = useState('html')
+  const [workId, setWorkId] = useState<number|''>('')
+  const aceEditorEl = useRef<AceEditor>(null)
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0)
-  const [needReload, setNeedReload] = useState(false)
   const history = useHistory<{filename: string, filebody: string}[]>()
 
   const downloadZip = useCallback(async () => {
@@ -152,7 +151,7 @@ const Sample = () => {
     }, workId)
 
     // 保存が失敗していた場合
-    if (id == undefined) return
+    if (id == '') return
 
     setWorkId(id)
 
@@ -171,17 +170,14 @@ const Sample = () => {
       return
     }
 
-    const doc = makeHTMLDocument(work)
-    if (doc === iframeSrcDoc) {
-      setNeedReload(!needReload)
-    } else {
-      setIFrameSrcDoc(doc)
+    if (iframeEl.current) {
+      iframeEl.current.src = `${URL}/works/${id}/index.html`
     }
-  }, [cssSession, htmlSession, iframeSrcDoc, jsSession, needReload, workId])
+  }, [cssSession, htmlSession, jsSession, workId])
 
   // 入力されているidでwork/{id}をGETで叩いて各editorValueに格納する
   const importButtonClicked = useCallback(async () => {
-    if (workId == undefined) {
+    if (workId == '') {
       alert('取得に失敗しました. 作品idは空にはできません.')
       return
     }
@@ -206,7 +202,9 @@ const Sample = () => {
       alert('JavaScriptに構文エラーがあります.')
       return
     }
-    setIFrameSrcDoc(makeHTMLDocument(work))
+    if (iframeEl.current) {
+      iframeEl.current.src = `${URL}/works/${workId}/index.html`
+    }
   }, [cssSession, htmlSession, jsSession, workId])
 
   const selectedFileChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) =>{
@@ -228,13 +226,15 @@ const Sample = () => {
 
   const inputChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const id = parseInt(e.target.value)
-    setWorkId(isNaN(id) ? undefined : id)
+    setWorkId(isNaN(id) ? '' : id)
   }, [])
 
   const selectedSizeChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSizeIndex(e.target.selectedIndex)
-    setNeedReload(!needReload)
-  }, [needReload])
+    if (workId != '' && iframeEl.current) {
+      iframeEl.current.src = `${URL}/works/${workId}/index.html`
+    }
+  }, [workId])
 
   const printButtonClicked = useCallback(() => {
     history.push('/print', [
@@ -243,13 +243,6 @@ const Sample = () => {
       {filename: 'index.js', filebody: jsSession.getValue()},
     ])
   }, [cssSession, history, htmlSession, jsSession])
-
-  // コードの書き換えが発生していないがiframeを再読込させたい時の処理
-  useEffect(() => {
-    if (iframeEl.current) {
-      iframeEl.current.srcdoc = iframeEl.current.srcdoc
-    }
-  }, [needReload])
 
   // エディタのデフォルトsessionの設定
   useEffect(() => {
@@ -276,7 +269,7 @@ const Sample = () => {
         <button onClick={importButtonClicked}>読込</button>
       </div>
       <GridWrapper>
-        <Button onClick = {runButtonClicked}>Run</Button>
+        <Button onClick = {runButtonClicked}>Save</Button>
         <select value={selectState} onChange={selectedFileChanged}>
           <option value='html'>HTML</option>
           <option value='css'>CSS</option>
@@ -295,8 +288,7 @@ const Sample = () => {
         <IFrameContent>
           <iframe
             ref = {iframeEl}
-            srcDoc = {iframeSrcDoc}
-            sandbox = 'allow-scripts'
+            sandbox = 'allow-scripts allow-modals'
             height = {presetSizes[selectedSizeIndex].height}
             width = {presetSizes[selectedSizeIndex].width}
           />
