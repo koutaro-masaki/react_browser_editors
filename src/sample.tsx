@@ -56,37 +56,59 @@ const presetSizes : {height:number, width:number}[] = [
   {height: 800, width: 800},
 ]
 
-const getWork: ((id: number) => Promise<Work|void>) = async (id) => {
+const getWork: ((id: number) => Promise<Work|undefined>) = async (id) => {
   try {
     const response = await fetch(`${URL}/work/${id}`, {method: 'GET'})
     if (!response.ok) {
-      throw new Error()
+      switch (response.status) {
+        case 400:
+          new Error(`${response.status}: パラメータが不足しています.`)
+          break
+        case 404:
+          new Error(`${response.status}: 作品${id}が見つかりませんでした.`)
+          break
+        default:
+          new Error(`${response.status}: ${response.statusText}`)
+          break
+      }
     }
     return await response.json()
   } catch (error) {
-    return console.error(error)
+    console.log(error)
+    return undefined
   }
 }
 
-const saveWork: ((work: Work, id: number | undefined) => Promise<Response>) = async (work, id) => {
-  if (id == undefined) {
-    return fetch(`${URL}/work`, {
+const saveWork: ((work: Work, id: number | undefined) => Promise<number|undefined>) = async (work, id) => {
+  const response = id == undefined ?
+    fetch(`${URL}/work`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(work),
-    })
-  } else {
-    return fetch(`${URL}/work/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(work),
-    })
-  }
+    }) :
+        fetch(`${URL}/work/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(work),
+        })
+
+  return await response.then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`${response.status}: ${response.statusText}`)
+    }
+    return await response.json().then((resJson: PostResponceJson) => parseInt(resJson.id))
+  })
+      .catch((error) => {
+        console.error(error)
+        alert('保存に失敗しました')
+        return undefined
+      })
 }
+
 
 const makeHTMLDocument: ((json: Work) => string) = (json) => {
   // eslint-disable-next-line max-len
@@ -99,7 +121,7 @@ const Sample = () => {
   const jsSession = useMemo(() => createEditSession('', 'ace/mode/javascript'), [])
   const [iframeSrcDoc, setIFrameSrcDoc] = useState('')
   const [selectState, setSelectState] = useState('html')
-  const [workId, setWorkId] = useState('')
+  const [workId, setWorkId] = useState<number|undefined>(undefined)
   const aceEditorEl = useRef<AceEditor>(null)
   const iframeEl = useRef<HTMLIFrameElement>(null)
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0)
@@ -112,22 +134,13 @@ const Sample = () => {
       'html': htmlSession.getValue(),
       'css': cssSession.getValue(),
       'javascript': jsSession.getValue(),
-    }, parseInt(workId))
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`${response.status}: ${response.statusText}`)
-          }
-          return await response.json().then((resJson: PostResponceJson) => parseInt(resJson.id))
-        })
-        .catch((error) => {
-          console.error(error)
-          alert('保存に失敗しました')
-        })
+    }, workId)
 
-    if (typeof id == 'number') {
-      setWorkId(id.toString())
-      window.open(`${URL}/download/${id}`, '')
-    }
+    if (id == undefined) return
+
+    setWorkId(id)
+
+    window.open(`${URL}/download/${id}`, '')
   }, [cssSession, htmlSession, jsSession, workId])
 
   const runButtonClicked = useCallback(async () => {
@@ -136,22 +149,12 @@ const Sample = () => {
       'html': htmlSession.getValue(),
       'css': cssSession.getValue(),
       'javascript': jsSession.getValue(),
-    }, workId == '' ? undefined : parseInt(workId))
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`${response.status}: ${response.statusText}`)
-          }
-          return await response.json().then((resJson: PostResponceJson) => parseInt(resJson.id))
-        })
-        .catch((error) => {
-          console.error(error)
-          alert('保存に失敗しました')
-        })
+    }, workId)
 
     // 保存が失敗していた場合
     if (id == undefined) return
 
-    setWorkId(id.toString())
+    setWorkId(id)
 
     const work = await getWork(id)
     if (work == undefined) return
@@ -178,8 +181,12 @@ const Sample = () => {
 
   // 入力されているidでwork/{id}をGETで叩いて各editorValueに格納する
   const importButtonClicked = useCallback(async () => {
-    // とりあえず叩く。無効な値ならalert出す
-    const work = await getWork(parseInt(workId))
+    if (workId == undefined) {
+      alert('取得に失敗しました. 作品idは空にはできません.')
+      return
+    }
+
+    const work = await getWork(workId)
     if (work == undefined) {
       alert('取得に失敗しました. idが有効か確認してください.')
       return
@@ -219,7 +226,10 @@ const Sample = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aceEditorEl.current])
 
-  const inputChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setWorkId(e.target.value), [])
+  const inputChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const id = parseInt(e.target.value)
+    setWorkId(isNaN(id) ? undefined : id)
+  }, [])
 
   const selectedSizeChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSizeIndex(e.target.selectedIndex)
