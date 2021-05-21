@@ -1,6 +1,6 @@
 import React, {useState, useMemo, useCallback, useRef, useEffect} from 'react'
 import {createEditSession} from 'ace-builds'
-import {useHistory} from 'react-router-dom'
+import {useHistory, useParams} from 'react-router-dom'
 import AceEditor from 'react-ace'
 import styled from 'styled-components'
 
@@ -40,9 +40,6 @@ const IFrameContent = styled.div({
   gridRow: 2,
 })
 
-interface PostResponceJson {
-  id: string
-}
 interface Work {
   html: string,
   css: string,
@@ -57,157 +54,83 @@ const presetSizes : {height:number, width:number}[] = [
   {height: 800, width: 800},
 ]
 
-const getWork: ((id: number) => Promise<Work|undefined>) = async (id) => {
-  try {
-    const response = await fetch(`${URL}/work/${id}`, {method: 'GET'})
-    if (!response.ok) {
-      switch (response.status) {
-        case 400:
-          new Error(`${response.status}: パラメータが不足しています.`)
-          break
-        case 404:
-          new Error(`${response.status}: 作品${id}が見つかりませんでした.`)
-          break
-        default:
-          new Error(`${response.status}: ${response.statusText}`)
-          break
-      }
-    }
-    return await response.json()
-  } catch (error) {
-    console.log(error)
-    return undefined
-  }
-}
-
-const saveWork: ((work: Work, id: number | '' | undefined) => Promise<number|''>) = async (work, id) => {
-  const response = id == undefined || id == '' ?
-    fetch(`${URL}/work`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(work),
-    }) :
-        fetch(`${URL}/work/${id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(work),
-        })
-
-  return await response.then(async (response) => {
-    if (!response.ok) {
-      throw new Error(`${response.status}: ${response.statusText}`)
-    }
-    return await response.json().then((resJson: PostResponceJson) => parseInt(resJson.id))
-  })
-      .catch((error) => {
-        console.error(error)
-        alert('保存に失敗しました')
-        return ''
-      })
-}
-
-
-const makeHTMLDocument: ((json: Work) => string) = (json) => {
-  // eslint-disable-next-line max-len
-  return `${json.html}<style>${json.css}</style><script>try{${json.javascript}}catch(error){window.parent.postMessage(error, 'http://localhost:3000/')}<\/script>`
-}
-
 const Sample = () => {
   const htmlSession = useMemo(() => createEditSession('<!DOCTYPE html>\n<h1>Hello, World!</h1>', 'ace/mode/html'), [])
   const cssSession = useMemo(() => createEditSession('', 'ace/mode/css'), [])
   const jsSession = useMemo(() => createEditSession('', 'ace/mode/javascript'), [])
   const iframeEl = useRef<HTMLIFrameElement>(null)
   const [selectState, setSelectState] = useState('html')
-  const [workId, setWorkId] = useState<number|''>('')
   const aceEditorEl = useRef<AceEditor>(null)
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0)
   const history = useHistory<{filename: string, filebody: string}[]>()
+  const {id} = useParams<{id:string | undefined}>()
 
   const downloadZip = useCallback(async () => {
     // DLする前に保存する
-    const id = await saveWork({
-      'html': htmlSession.getValue(),
-      'css': cssSession.getValue(),
-      'javascript': jsSession.getValue(),
-    }, workId)
+    const init = {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        'html': htmlSession.getValue(),
+        'css': cssSession.getValue(),
+        'javascript': jsSession.getValue(),
+      }),
+    }
 
-    if (id == undefined) return
+    const success = await fetch(`${URL}/work/${id}`, init)
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`${response.status}: ${response.statusText}`)
+          }
+          return true
+        })
+        .catch((error) => {
+          console.error(error)
+          alert('保存に失敗しました')
+          return false
+        })
+    if (iframeEl.current) {
+      iframeEl.current.src = `${URL}/works/${id}/index.html`
+    }
 
-    setWorkId(id)
+    if (!success) return
 
     window.open(`${URL}/download/${id}`, '')
-  }, [cssSession, htmlSession, jsSession, workId])
+  }, [cssSession, htmlSession, id, jsSession])
 
   const runButtonClicked = useCallback(async () => {
     // 保存する
-    const id = await saveWork({
-      'html': htmlSession.getValue(),
-      'css': cssSession.getValue(),
-      'javascript': jsSession.getValue(),
-    }, workId)
-
-    // 保存が失敗していた場合
-    if (id == '') return
-
-    setWorkId(id)
-
-    const work = await getWork(id)
-    if (work == undefined) return
-
-    // 構文エラーがあれば実行しない.
-    if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-      alert('HTMLに構文エラーがあります.')
-      return
-    } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-      alert('CSSに構文エラーがあります.')
-      return
-    } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-      alert('JavaScriptに構文エラーがあります.')
-      return
+    const init = {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        'html': htmlSession.getValue(),
+        'css': cssSession.getValue(),
+        'javascript': jsSession.getValue(),
+      }),
     }
+
+    await fetch(`${URL}/work/${id}`, init)
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`${response.status}: ${response.statusText}`)
+          }
+        })
+        .catch((error) => {
+          console.error(error)
+          alert('保存に失敗しました')
+        })
 
     if (iframeEl.current) {
       iframeEl.current.src = `${URL}/works/${id}/index.html`
     }
-  }, [cssSession, htmlSession, jsSession, workId])
+  }, [cssSession, htmlSession, id, jsSession])
 
-  // 入力されているidでwork/{id}をGETで叩いて各editorValueに格納する
-  const importButtonClicked = useCallback(async () => {
-    if (workId == '') {
-      alert('取得に失敗しました. 作品idは空にはできません.')
-      return
-    }
-
-    const work = await getWork(workId)
-    if (work == undefined) {
-      alert('取得に失敗しました. idが有効か確認してください.')
-      return
-    }
-
-    htmlSession.setValue(work.html)
-    cssSession.setValue(work.css)
-    jsSession.setValue(work.javascript)
-    // 構文エラーがあれば実行しない.
-    if (htmlSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-      alert('HTMLに構文エラーがあります.')
-      return
-    } else if (cssSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-      alert('CSSに構文エラーがあります.')
-      return
-    } else if (jsSession.getAnnotations().filter((a) => a.type == 'error').length > 0) {
-      alert('JavaScriptに構文エラーがあります.')
-      return
-    }
-    if (iframeEl.current) {
-      iframeEl.current.src = `${URL}/works/${workId}/index.html`
-    }
-  }, [cssSession, htmlSession, jsSession, workId])
-
-  const selectedFileChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) =>{
+  const selectedFileChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const mode = e.target.value
     switch (mode) {
       case 'html':
@@ -224,17 +147,12 @@ const Sample = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aceEditorEl.current])
 
-  const inputChanged = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const id = parseInt(e.target.value)
-    setWorkId(isNaN(id) ? '' : id)
-  }, [])
-
   const selectedSizeChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSizeIndex(e.target.selectedIndex)
-    if (workId != '' && iframeEl.current) {
-      iframeEl.current.src = `${URL}/works/${workId}/index.html`
+    if (iframeEl.current) {
+      iframeEl.current.src = `${URL}/works/${id}/index.html`
     }
-  }, [workId])
+  }, [id])
 
   const printButtonClicked = useCallback(() => {
     history.push('/print', [
@@ -243,6 +161,32 @@ const Sample = () => {
       {filename: 'index.js', filebody: jsSession.getValue()},
     ])
   }, [cssSession, history, htmlSession, jsSession])
+
+  useEffect(() => {
+    if (id == undefined) return
+
+    const fetchWork = async () => {
+      const work = await fetch(`${URL}/work/${id}`, {method: 'GET'}).then(async (res) => {
+        if (!res.ok) return
+        return await res.json().then((j:Work) => j)
+      }).catch((error) => {
+        alert(error)
+        return undefined
+      })
+
+      if (work) {
+        htmlSession.setValue(work.html)
+        cssSession.setValue(work.css)
+        jsSession.setValue(work.javascript)
+        if (iframeEl.current) {
+          iframeEl.current.src = `${URL}/works/${id}/index.html`
+        }
+      }
+    }
+
+    fetchWork()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // エディタのデフォルトsessionの設定
   useEffect(() => {
@@ -264,12 +208,10 @@ const Sample = () => {
         <button onClick={downloadZip}>ダウンロード</button>
       </div>
       <div>
-        Work ID:
-        <input type='number' min='1' value={workId} onChange={inputChanged}/>
-        <button onClick={importButtonClicked}>読込</button>
+        Work ID: {id}
       </div>
       <GridWrapper>
-        <Button onClick = {runButtonClicked}>Save</Button>
+        <Button onClick = {runButtonClicked}>実行</Button>
         <select value={selectState} onChange={selectedFileChanged}>
           <option value='html'>HTML</option>
           <option value='css'>CSS</option>
