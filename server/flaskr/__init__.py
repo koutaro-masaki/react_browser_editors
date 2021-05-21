@@ -22,9 +22,6 @@ def create_app(test_config=None):
         JSON_AS_ASCII=False
     )
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///flaskr.sqlite'
-    app.config['Access-Control-Allow-Origin'] = '*'
-
-    CORS(app)
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -40,8 +37,10 @@ def create_app(test_config=None):
         pass
 
     init_db(app)
+    CORS(app)
 
     # a simple page that says hello
+
     @app.route('/hello')
     def hello():
         return 'Hello, World!'
@@ -159,7 +158,8 @@ def create_app(test_config=None):
             response.content_type = 'text/css'
             return response, 200
         elif filename == 'index.js':
-            response = flask.Response(work.javascript)
+            response = flask.Response(
+                f'try{{{work.javascript}}}catch(error){{window.parent.postMessage(error, "http://localhost:3000/")}}')
             response.content_type = 'text/javascript'
             return response, 200
         abort(500)
