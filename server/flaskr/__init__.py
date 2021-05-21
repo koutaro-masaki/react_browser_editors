@@ -90,28 +90,9 @@ def create_app(test_config=None):
             return abort(500)
 
     @app.route('/work', methods=['POST'])
-    def post_work():
+    def new_work():
         if request.method == 'POST':
-            json = request.get_json()
-
-            if 'html' not in json:
-                return jsonify({
-                    'error': '不正なパラメータ',
-                    'message': "'html'フィールドが定義されていません"
-                }), 400
-            if 'css' not in json:
-                return jsonify({
-                    'error': '不正なパラメータ',
-                    'message': "'css'フィールドが定義されていません"
-                }), 400
-            if 'javascript' not in json:
-                return jsonify({
-                    'error': '不正なパラメータ',
-                    'message': "'javascript'フィールドが定義されていません"
-                }), 400
-
-            work = Work(html=json['html'], css=json['css'],
-                        javascript=json['javascript'])
+            work = Work()
 
             # ここの処理で例外が出る可能性？
             db.session.add(work)
@@ -126,6 +107,11 @@ def create_app(test_config=None):
             return jsonify(result), 200
         else:
             return abort(500)
+
+    @app.route('/works', methods=['GET'])
+    def get_work_id_list():
+        ids = db.session.query(Work.id).all()
+        return jsonify(list(map(lambda w: w.id, ids))), 200
 
     @app.route('/download/<id>', methods=['GET'])
     def get_zip(id):
@@ -148,7 +134,7 @@ def create_app(test_config=None):
         work = db.session.query(Work).get(work_id)
         if work is None:
             abort(404)
-        print(filename)
+
         if filename == 'index.html':
             response = flask.Response(work.html)
             response.content_type = 'text/html'
