@@ -4,8 +4,10 @@ import click
 import zipfile
 
 from flask import Flask, request, Markup, abort, jsonify
+import flask
 from flask.cli import with_appcontext
 from flask.helpers import send_file
+from flask.wrappers import Response
 from flask_cors import CORS
 
 from .models.work import Work
@@ -149,11 +151,17 @@ def create_app(test_config=None):
             abort(404)
         print(filename)
         if filename == 'index.html':
-            return work.html, 200
+            response = flask.Response(work.html)
+            response.content_type = 'text/html'
+            return response, 200
         elif filename == 'style.css':
-            return work.css, 200
+            response = flask.Response(work.css)
+            response.content_type = 'text/css'
+            return response, 200
         elif filename == 'index.js':
-            return work.javascript, 200
+            response = flask.Response(work.javascript)
+            response.content_type = 'text/javascript'
+            return response, 200
         abort(500)
 
     @app.after_request
