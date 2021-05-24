@@ -55,7 +55,7 @@ const presetSizes : {height:number, width:number}[] = [
 ]
 
 const Sample = () => {
-  const htmlSession = useMemo(() => createEditSession('<!DOCTYPE html>\n<h1>Hello, World!</h1>', 'ace/mode/html'), [])
+  const htmlSession = useMemo(() => createEditSession('', 'ace/mode/html'), [])
   const cssSession = useMemo(() => createEditSession('', 'ace/mode/css'), [])
   const jsSession = useMemo(() => createEditSession('', 'ace/mode/javascript'), [])
   const iframeEl = useRef<HTMLIFrameElement>(null)
@@ -64,6 +64,7 @@ const Sample = () => {
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0)
   const history = useHistory<{filename: string, filebody: string}[]>()
   const {id} = useParams<{id:string | undefined}>()
+  const [initialized, setInitialized] = useState(false)
 
   const downloadZip = useCallback(async () => {
     // DLする前に保存する
@@ -144,8 +145,7 @@ const Sample = () => {
         break
     }
     setSelectState(mode)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aceEditorEl.current])
+  }, [cssSession, htmlSession, jsSession])
 
   const selectedSizeChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSizeIndex(e.target.selectedIndex)
@@ -162,6 +162,7 @@ const Sample = () => {
     ])
   }, [cssSession, history, htmlSession, jsSession])
 
+  // ワークスペースの初期化処理
   useEffect(() => {
     if (id == undefined) return
 
@@ -182,17 +183,15 @@ const Sample = () => {
           iframeEl.current.src = `${URL}/works/${id}/index.html`
         }
       }
+      // エディタのデフォルトsessionの設定
+      aceEditorEl.current?.editor.setSession(htmlSession)
+      // 初期化完了
+      setInitialized(true)
     }
 
     fetchWork()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // エディタのデフォルトsessionの設定
-  useEffect(() => {
-    aceEditorEl.current?.editor.setSession(htmlSession)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aceEditorEl.current])
 
   // iframeからエラーメッセージを受け取るイベントの登録
   useEffect(() => {
@@ -204,15 +203,15 @@ const Sample = () => {
   return (
     <div>
       <div>
-        <button onClick={printButtonClicked}>印刷用ページへ</button>
-        <button onClick={downloadZip}>ダウンロード</button>
+        <button onClick={printButtonClicked} disabled={!initialized}>印刷用ページへ</button>
+        <button onClick={downloadZip} disabled={!initialized}>ダウンロード</button>
       </div>
       <div>
         Work ID: {id}
       </div>
       <GridWrapper>
-        <Button onClick = {runButtonClicked}>実行</Button>
-        <select value={selectState} onChange={selectedFileChanged}>
+        <Button onClick = {runButtonClicked} disabled={!initialized}>実行</Button>
+        <select value={selectState} onChange={selectedFileChanged} disabled={!initialized}>
           <option value='html'>HTML</option>
           <option value='css'>CSS</option>
           <option value='javascript'>JavaScript</option>
@@ -220,6 +219,7 @@ const Sample = () => {
         <Box1>
           <AceEditor
             ref = {aceEditorEl}
+            readOnly = {!initialized}
             mode = 'javascript'
             theme = 'monokai'
             name = 'html-editor'
@@ -236,7 +236,7 @@ const Sample = () => {
           />
         </IFrameContent>
       </GridWrapper>
-      <select value={selectedSizeIndex} onChange={selectedSizeChanged}>
+      <select value={selectedSizeIndex} onChange={selectedSizeChanged} disabled={!initialized}>
         {presetSizes.map((item, idx) =>
           <option key={`item-${idx}`} value={idx}>
             {`${item.height}x${item.width}`}
