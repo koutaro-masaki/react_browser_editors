@@ -1,5 +1,9 @@
+from sqlalchemy.orm import relation
 from ..db import db
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.schema import UniqueConstraint
+from sqlalchemy.orm import relationship
+
 
 default_html = '''<!DOCTYPE html>
 <html lang="ja">
@@ -37,7 +41,8 @@ function draw() {
 class Work(db.Model):
     __tablename__ = 'works'
 
-    id = db.Column(Integer, primary_key=True, autoincrement=True)
-    html = db.Column(String, nullable=False, default=default_html)
-    css = db.Column(String, nullable=False, default=default_css)
-    javascript = db.Column(String, nullable=False, default=default_javascript)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    html = Column(String, nullable=False, default=default_html)
+    css = Column(String, nullable=False, default=default_css)
+    javascript = Column(String, nullable=False, default=default_javascript)
+    files = relationship('File', backref='work')
