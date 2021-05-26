@@ -40,10 +40,15 @@ const IFrameContent = styled.div({
   gridRow: 2,
 })
 
+interface File {
+  name: string,
+  body: string
+}
 interface Work {
   html: string,
   css: string,
-  javascript: string
+  javascript: string,
+  files: File[]
 }
 
 const presetSizes : {height:number, width:number}[] = [
@@ -59,7 +64,7 @@ const Sample = () => {
   const cssSession = useMemo(() => createEditSession('', 'ace/mode/css'), [])
   const jsSession = useMemo(() => createEditSession('', 'ace/mode/javascript'), [])
   const iframeEl = useRef<HTMLIFrameElement>(null)
-  const [selectState, setSelectState] = useState('html')
+  const [selectState, setSelectState] = useState('javascript')
   const aceEditorEl = useRef<AceEditor>(null)
   const [selectedSizeIndex, setSelectedSizeIndex] = useState(0)
   const history = useHistory<{filename: string, filebody: string}[]>()
@@ -93,7 +98,7 @@ const Sample = () => {
           return false
         })
     if (iframeEl.current) {
-      iframeEl.current.src = `${URL}/works/${id}/index.html`
+      iframeEl.current.src = `${URL}/work/${id}/index.html`
     }
 
     if (!success) return
@@ -127,7 +132,7 @@ const Sample = () => {
         })
 
     if (iframeEl.current) {
-      iframeEl.current.src = `${URL}/works/${id}/index.html`
+      iframeEl.current.src = `${URL}/work/${id}/index.html`
     }
   }, [cssSession, htmlSession, id, jsSession])
 
@@ -150,7 +155,7 @@ const Sample = () => {
   const selectedSizeChanged = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSizeIndex(e.target.selectedIndex)
     if (iframeEl.current) {
-      iframeEl.current.src = `${URL}/works/${id}/index.html`
+      iframeEl.current.src = `${URL}/work/${id}/index.html`
     }
   }, [id])
 
@@ -161,6 +166,15 @@ const Sample = () => {
       {filename: 'index.js', filebody: jsSession.getValue()},
     ])
   }, [cssSession, history, htmlSession, jsSession])
+
+  const handleAddFileButton = useCallback(() => {
+    fetch(`${URL}/work/${id}/poyo/javascript`, {method: 'POST'})
+        .then((res) => {
+          if (!res.ok) {
+            alert('失敗(ミス)っちまったよ…')
+          }
+        })
+  }, [id])
 
   // ワークスペースの初期化処理
   useEffect(() => {
@@ -180,11 +194,11 @@ const Sample = () => {
         cssSession.setValue(work.css)
         jsSession.setValue(work.javascript)
         if (iframeEl.current) {
-          iframeEl.current.src = `${URL}/works/${id}/index.html`
+          iframeEl.current.src = `${URL}/work/${id}/index.html`
         }
       }
       // エディタのデフォルトsessionの設定
-      aceEditorEl.current?.editor.setSession(htmlSession)
+      aceEditorEl.current?.editor.setSession(jsSession)
       // 初期化完了
       setInitialized(true)
     }
@@ -196,6 +210,8 @@ const Sample = () => {
   // iframeからエラーメッセージを受け取るイベントの登録
   useEffect(() => {
     window.addEventListener('message', (e:MessageEvent<string>) => {
+      console.log(e.origin)
+      if (e.origin != URL) return
       alert(e.data)
     })
   }, [])
@@ -205,6 +221,7 @@ const Sample = () => {
       <div>
         <button onClick={printButtonClicked} disabled={!initialized}>印刷用ページへ</button>
         <button onClick={downloadZip} disabled={!initialized}>ダウンロード</button>
+        <button onClick={handleAddFileButton}>ファイル追加</button>
       </div>
       <div>
         Work ID: {id}
